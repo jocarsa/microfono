@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Geolocation Example</title>
+</head>
+<body>
+<script>
+ 
+   async function startAudioCapture() {
+  try {
+    // Request microphone access
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    
+    // Create a MediaRecorder instance with the stream
+    const mediaRecorder = new MediaRecorder(stream);
+
+    // Set recording interval to 1 second (1000 ms)
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        console.log("Audio chunk:", event.data);
+      }
+    };
+
+    // Start recording with 1-second intervals
+    mediaRecorder.start(1000);
+
+    console.log("Recording audio in 1-second chunks. Check the console for data.");
+
+    // Optionally, stop recording after a certain time
+    setTimeout(() => {
+      mediaRecorder.stop();
+      console.log("Stopped recording.");
+    }, 10000); // Stops after 10 seconds, you can adjust this time
+
+  } catch (error) {
+    console.error("Error accessing microphone:", error);
+  }
+}
+
+// Call the function to start capturing audio
+startAudioCapture();
+
+</script>
+
+</body>
+</html>

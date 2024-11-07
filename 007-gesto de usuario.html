@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket Audio Capture</title>
+</head>
+<body>
+  <button onclick="startAudioCapture()">Start Audio Capture</button>
+
+  <script>
+    let mediaRecorder;
+    let socket;
+    let audioContext;
+
+    async function startAudioCapture() {
+      try {
+        // Initialize WebSocket connection
+        socket = new WebSocket("wss://jotauve.es:3000");
+        socket.binaryType = "arraybuffer";
+
+        // Create an AudioContext
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Resume the AudioContext if suspended
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+
+        // Log WebSocket events
+        socket.onopen = () => console.log("WebSocket connection opened");
+        socket.onclose = () => console.log("WebSocket connection closed");
+        socket.onerror = (error) => console.error("WebSocket error:", error);
+
+        // Handle incoming audio data from the WebSocket server
+        socket.onmessage = async (event) => {
+          try {
+            if (event.data instanceof ArrayBuffer) {
+              const audioBuffer = await audioContext.decodeAudioData(event.data);
+              const source = audioContext.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(audioContext.destination);
+              source.start();
+              console.log("Received and playing audio from WebSocket.");
+            } else if (typeof event.data === "string") {
+              console.log("Received text message:", event.data);
+            }
+          } catch (decodeError) {
+            console.error("Error decoding audio data:", decodeError);
+          }
+        };
+
+        // Request microphone access
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // Set up MediaRecorder with proper MIME type
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm; codecs=opus' });
+		try{
+        // Handle audio data when available
+        mediaRecorder.ondataavailable = async (event) => {
+          if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+            console.log("Sending chunk of size:", event.data.size);
+            const arrayBuffer = await event.data.arrayBuffer();
+            socket.send(arrayBuffer);
+
+            // Restart mediaRecorder to ensure each chunk is self-contained
+            mediaRecorder.stop();
+            setTimeout(() => mediaRecorder.start(2000), 50); // Adjust delay if needed
+          } else {
+            console.warn("WebSocket not open or chunk is empty.");
+          }
+        };
+		}catch(Error){
+			console.warn("error")
+		}
+
+        // Start recording with a 2-second interval to increase chunk size
+        mediaRecorder.start(2000);
+        console.log("Recording audio in 2-second chunks.");
+
+      } catch (error) {
+        console.error("Error accessing microphone:", error);
+      }
+    }
+  </script>
+</body>
+</html>
